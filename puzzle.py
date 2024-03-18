@@ -147,6 +147,43 @@ class Puzzle:
                             print(f"Naked single: r{row + 1}c{col + 1} must be a {digit}")
 
 
+    def check_hidden_singles(self, log=False):
+        """
+        Checks for every house if there is a digit that only has 1 available cell remaining.
+        If there is one such digit, we can fill in that digit in that cell.
+        """
+        pass_successful = True
+        while pass_successful:
+            pass_successful = False
+
+            for digit in range(1, 10):
+                # check boxes
+                houses = [(self.boxes, "Box"), (self.rows, "Row"), (self.columns, "Column")]
+
+                for _houses in houses:
+
+                    for house in _houses[0]:
+                        possibilities = []
+                        for cell in house:
+                            if digit in cell.options:
+                                possibilities.append(cell)
+
+                        if len(possibilities) == 1:
+                            pass_successful = True
+
+                            cell = possibilities[0]
+                            r, c = cell.id // 9, cell.id % 9
+                            digit = possibilities[0]
+
+                            self.add_clue(r, c, digit)
+
+                            if log:
+                                if _houses[1] == "Box":
+                                    print(f"Hidden Single in Box {(r//3) * 3 + (c//3)}: r{r}c{c} must be a {digit}")
+                                elif _houses[1] == "Row":
+                                    print(f"Hidden Single in Row {r}: r{r}c{c} must be a {digit}")
+                                elif _houses[1] == "Column":
+                                    print(f"Hidden Single in Column {c}: r{r}c{c} must be a {digit}")
 
 
 if __name__ == "__main__":
