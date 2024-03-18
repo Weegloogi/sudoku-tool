@@ -87,7 +87,8 @@ class Puzzle:
 
         # remove the option from any cell
         for cell in self.board[row][col].sees:
-            cell.options.remove(digit)
+            if digit in cell.options:
+                cell.options.remove(digit)
 
     def print_board(self, large=True, outstream = sys.stdout):
 
