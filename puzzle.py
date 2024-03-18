@@ -74,7 +74,7 @@ class Puzzle:
         if row < 0 or row >= 9:
             raise ValueError("Row must be between 0 and 8")
 
-        if col < 0 or col >= 8:
+        if col < 0 or col >= 9:
             raise ValueError("Column must be between 0 and 8")
 
         if digit < 1 or digit >= 10:
