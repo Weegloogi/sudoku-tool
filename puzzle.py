@@ -124,10 +124,42 @@ class Puzzle:
                 if (row in [2,5]):
                     print("---+---+---", file=outstream)
 
+    # naked singles
+    def check_solved_cells(self, log=False):
+        """
+        Checks every cell if it only has one possible digit left, in which case the cell is solved and we can fill in that digit
+        """
+
+        pass_successful = True
+        while pass_successful:
+            pass_successful = False
+
+            for row in range(9):
+                for col in range(9):
+                    cell = self.board[row][col]
+
+                    if len(cell.options) == 1:
+                        pass_successful = True
+                        digit = cell.options[0]
+                        self.add_clue(row, col, cell.options[0])
+
+                        if log:
+                            print(f"Naked single: r{row + 1}c{col + 1} must be a {digit}")
+
+
+
 
 if __name__ == "__main__":
     import pprint
 
     puzzle = Puzzle()
-    puzzle.add_clue(1,1,2)
+    puzzle.add_clue(0, 0, 1)
+    puzzle.add_clue(0, 1, 2)
+    puzzle.add_clue(0, 2, 3)
+    puzzle.add_clue(0, 3, 4)
+    puzzle.add_clue(0, 4, 5)
+    puzzle.add_clue(0, 5, 6)
+    puzzle.add_clue(0, 6, 7)
+    puzzle.add_clue(0, 7, 8)
+    puzzle.check_solved_cells(log=True)
     puzzle.print_board(large=False)
