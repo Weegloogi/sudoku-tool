@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import sys
+
 
 class Cell:
     def __init__(self, id: int, digit=None):
@@ -87,9 +89,44 @@ class Puzzle:
         for cell in self.board[row][col].sees:
             cell.options.remove(digit)
 
+    def print_board(self, large=True, outstream = sys.stdout):
+
+        if large:
+            for row in range(9):
+                print("         |         |         ", file=outstream)
+                for col in range(9):
+                    cell = self.board[row][col]
+                    if cell.isSolved:
+                        print(f" {cell.digit} ", end="", file=outstream)
+                    else:
+                        print(" . ", end="", file=outstream)
+
+                    if (col in [2,5]):
+                        print("|", end="", file=outstream)
+
+                print("\n         |         |         ", file=outstream)
+                if (row in [2,5]):
+                    print("---------+---------+---------", file=outstream)
+        else:
+            for row in range(9):
+                for col in range(9):
+                    cell = self.board[row][col]
+                    if cell.isSolved:
+                        print(cell.digit, end="", file=outstream)
+                    else:
+                        print(".", end="", file=outstream)
+
+                    if (col in [2,5]):
+                        print("|", end="", file=outstream)
+
+                print("\n", end="", file=outstream)
+                if (row in [2,5]):
+                    print("---+---+---", file=outstream)
+
 
 if __name__ == "__main__":
     import pprint
 
     puzzle = Puzzle()
-    pprint.pprint(puzzle.get_cell(4, 4).sees)
+    puzzle.add_clue(1,1,2)
+    puzzle.print_board(large=False)
