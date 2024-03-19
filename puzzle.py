@@ -90,7 +90,7 @@ class Puzzle:
             if digit in cell.options:
                 cell.options.remove(digit)
 
-    def print_board(self, large=True, outstream = sys.stdout):
+    def print_board(self, large=True, outstream=sys.stdout):
 
         if large:
             for row in range(9):
@@ -102,11 +102,11 @@ class Puzzle:
                     else:
                         print(" . ", end="", file=outstream)
 
-                    if (col in [2,5]):
+                    if (col in [2, 5]):
                         print("|", end="", file=outstream)
 
                 print("\n         |         |         ", file=outstream)
-                if (row in [2,5]):
+                if (row in [2, 5]):
                     print("---------+---------+---------", file=outstream)
         else:
             for row in range(9):
@@ -117,11 +117,11 @@ class Puzzle:
                     else:
                         print(".", end="", file=outstream)
 
-                    if (col in [2,5]):
+                    if (col in [2, 5]):
                         print("|", end="", file=outstream)
 
                 print("\n", end="", file=outstream)
-                if (row in [2,5]):
+                if (row in [2, 5]):
                     print("---+---+---", file=outstream)
 
     # naked singles
