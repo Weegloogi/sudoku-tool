@@ -25,6 +25,9 @@ class Cell:
     def __eq__(self, other):
         return self.id == other.id
 
+    def __hash__(self):
+        return hash((self.id, self.digit, hash(tuple(self.options))))
+
     def add_see(self, see: Cell):
         if see != self:
             self.sees.append(see)
@@ -41,9 +44,9 @@ class Puzzle:
         # initialize board
         self.board: list[list[Cell]] = [[Cell(y * 9 + x) for x in range(9)] for y in range(9)]
 
-        self.boxes = [[] for _ in range(9)]
-        self.columns = [[] for _ in range(9)]
-        self.rows = self.board # self.board is stored as a list of rows so we can just copy it
+        self.boxes: list[list[Cell]] = [[] for _ in range(9)]
+        self.columns: list[list[Cell]] = [[] for _ in range(9)]
+        self.rows: list[list[Cell]] = self.board  # self.board is stored as a list of rows so we can just copy it
 
         # for every cell, add all the cells that it sees
         for row in range(9):
@@ -102,11 +105,11 @@ class Puzzle:
                     else:
                         print(" . ", end="", file=outstream)
 
-                    if (col in [2, 5]):
+                    if col in [2, 5]:
                         print("|", end="", file=outstream)
 
                 print("\n         |         |         ", file=outstream)
-                if (row in [2, 5]):
+                if row in [2, 5]:
                     print("---------+---------+---------", file=outstream)
         else:
             for row in range(9):
@@ -125,11 +128,13 @@ class Puzzle:
                     print("---+---+---", file=outstream)
 
     # naked singles
-    def check_solved_cells(self, log=False):
+    def check_solved_cells(self, log=False) -> bool:
         """
         Checks every cell if it only has one possible digit left, in which case the cell is solved and we can fill in that digit
+        returns True if any cells were solved, False otherwise
         """
 
+        _return = False
         pass_successful = True
         while pass_successful:
             pass_successful = False
@@ -140,24 +145,27 @@ class Puzzle:
 
                     if len(cell.options) == 1:
                         pass_successful = True
+                        _return = True
                         digit = cell.options[0]
                         self.add_clue(row, col, cell.options[0])
 
                         if log:
                             print(f"Naked single: r{row + 1}c{col + 1} must be a {digit}")
 
+        return _return
 
-    def check_hidden_singles(self, log=False):
+    def check_hidden_singles(self, log=False) -> bool:
         """
         Checks for every house if there is a digit that only has 1 available cell remaining.
         If there is one such digit, we can fill in that digit in that cell.
+        returns True if we found any hidden singles, False otherwise
         """
+        _return = False
         pass_successful = True
         while pass_successful:
             pass_successful = False
 
             for digit in range(1, 10):
-                # check boxes
                 houses = [(self.boxes, "Box"), (self.rows, "Row"), (self.columns, "Column")]
 
                 for _houses in houses:
@@ -170,33 +178,73 @@ class Puzzle:
 
                         if len(possibilities) == 1:
                             pass_successful = True
+                            _return = True
 
                             cell = possibilities[0]
                             r, c = cell.id // 9, cell.id % 9
-                            digit = possibilities[0]
 
                             self.add_clue(r, c, digit)
 
                             if log:
                                 if _houses[1] == "Box":
-                                    print(f"Hidden Single in Box {(r//3) * 3 + (c//3)}: r{r}c{c} must be a {digit}")
+                                    print(f"Hidden Single in Box {(r // 3) * 3 + (c // 3)}: r{r}c{c} must be a {digit}")
                                 elif _houses[1] == "Row":
                                     print(f"Hidden Single in Row {r}: r{r}c{c} must be a {digit}")
                                 elif _houses[1] == "Column":
                                     print(f"Hidden Single in Column {c}: r{r}c{c} must be a {digit}")
+
+        return _return
+
+    def check_pointing_pairs(self, log=False) -> bool:
+        """
+        Checks every box if the all remaining options for a digit see the same cell,
+        in which case that digit can be removed from that cell.
+        returns True if any digits were eliminated, otherwise False
+        """
+        _return = False
+        pass_successful = True
+        while pass_successful:
+            pass_successful = False
+
+            for digit in range(1,10):
+
+                for i, box in enumerate(self.boxes):
+                    remaining_options = [c for c in box if digit in c.options]
+
+                    # a pointing pair can only occur if there are 2 or 4 remaining cells
+                    if len(remaining_options) == 2:
+                        seen_by_all = list(set(remaining_options[0].sees) & set(remaining_options[1].sees))
+                    elif len(remaining_options) == 3:
+                        seen_by_all = list(set(remaining_options[0].sees) &
+                                           set(remaining_options[1].sees) &
+                                           set(remaining_options[2].sees))
+                    else:
+                        continue
+
+                    elims = [c for c in seen_by_all if digit in c.options]
+
+                    if len(elims) > 0:
+                        _return = True
+                        pass_successful = True
+
+                        if log:
+                            print(f"Pointing pair in box {i+1}: {digit} can be eliminated from {', '.join([f'r{c.id//9}c{c.id%9}' for c in elims])}")
+
+                        for c in elims:
+                            c.options.remove(digit)
+
+        return _return
+
+
 
 
 if __name__ == "__main__":
     import pprint
 
     puzzle = Puzzle()
-    puzzle.add_clue(0, 0, 1)
-    puzzle.add_clue(0, 1, 2)
-    puzzle.add_clue(0, 2, 3)
-    puzzle.add_clue(0, 3, 4)
-    puzzle.add_clue(0, 4, 5)
-    puzzle.add_clue(0, 5, 6)
-    puzzle.add_clue(0, 6, 7)
-    puzzle.add_clue(0, 7, 8)
-    puzzle.check_solved_cells(log=True)
+    puzzle.add_clue(3, 3, 2)
+    puzzle.add_clue(8, 0, 2)
+    puzzle.add_clue(5, 1, 3)
+    puzzle.add_clue(5, 2, 4)
+    puzzle.check_pointing_pairs(log=True)
     puzzle.print_board(large=False)
