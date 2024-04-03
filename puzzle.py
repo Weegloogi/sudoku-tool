@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+import itertools
 
 
 class Cell:
@@ -12,15 +13,19 @@ class Cell:
         self.options: list[int] = [1, 2, 3, 4, 5, 6, 7, 8, 9]
         self.sees: list[Cell] = []
 
+        self.row = id // 9
+        self.col = id % 9
+        self.box = (self.row // 3) * 3 + (self.col // 3)
+
         if digit:
             self.options = []
             self.isSolved = True
 
     def __repr__(self):
-        return f"Cell(row={self.id // 9}, col={self.id % 9})"
+        return f"Cell(row={self.row}, col={self.col})"
 
     def __str__(self):
-        return f"Cell(row={self.id // 9 + 1}, col={self.id % 9 + 1})"
+        return f"Cell(row={self.row + 1}, col={self.col + 1})"
 
     def __eq__(self, other):
         return self.id == other.id
@@ -181,17 +186,16 @@ class Puzzle:
                             _return = True
 
                             cell = possibilities[0]
-                            r, c = cell.id // 9, cell.id % 9
 
-                            self.add_clue(r, c, digit)
+                            self.add_clue(cell.row, cell.col, digit)
 
                             if log:
                                 if _houses[1] == "Box":
-                                    print(f"Hidden Single in Box {(r // 3) * 3 + (c // 3)}: r{r}c{c} must be a {digit}")
+                                    print(f"Hidden Single in Box {cell.box + 1}: r{cell.row}c{cell.col} must be a {digit}")
                                 elif _houses[1] == "Row":
-                                    print(f"Hidden Single in Row {r}: r{r}c{c} must be a {digit}")
+                                    print(f"Hidden Single in Row {cell.row}: r{cell.row}c{cell.col} must be a {digit}")
                                 elif _houses[1] == "Column":
-                                    print(f"Hidden Single in Column {c}: r{r}c{c} must be a {digit}")
+                                    print(f"Hidden Single in Column {cell.col}: r{cell.row}c{cell.col} must be a {digit}")
 
         return _return
 
@@ -228,12 +232,52 @@ class Puzzle:
                         pass_successful = True
 
                         if log:
-                            print(f"Pointing pair in box {i+1}: {digit} can be eliminated from {', '.join([f'r{c.id//9}c{c.id%9}' for c in elims])}")
+                            print(f"Pointing pair in box {i+1}: {digit} can be eliminated from {', '.join([f'r{c.row}c{c.col}' for c in elims])}")
 
                         for c in elims:
                             c.options.remove(digit)
 
         return _return
+
+    def check_box_line_reduction(self, log=False) -> bool:
+        """
+        Checks for every line if a digit is restricted to a single box,
+        in which case, the digit can be removed from any cell in that box that is not on the line.
+        """
+
+        _return = False
+        pass_successful = True
+        while pass_successful:
+            pass_successful = False
+
+            for digit in range(1,10):
+
+                for _house in ((self.rows, "row"), (self.columns, "column")):
+                    for line in _house[0]:
+                        remaining_options = [c for c in line if digit in c.options]
+                        boxes = set()
+                        for option in remaining_options:
+                            boxes.add(option.box)
+
+                        if len(boxes) == 1:
+                            elims = []
+                            for cell in self.boxes[remaining_options[0].box]:
+                                if cell not in line:
+                                    if digit in cell.options:
+                                        elims.append(cell)
+
+                            if len(elims) > 0:
+                                _return = True
+                                pass_successful = True
+
+                                if log:
+                                    print(f"Box line reduction in box {remaining_options[0].box}: {digit} can be eliminated from {', '.join([f'r{c.row}c{c.col}' for c in elims])}")
+
+                                for c in elims:
+                                    c.options.remove(digit)
+
+
+
 
 
 
@@ -242,9 +286,11 @@ if __name__ == "__main__":
     import pprint
 
     puzzle = Puzzle()
-    puzzle.add_clue(3, 3, 2)
-    puzzle.add_clue(8, 0, 2)
-    puzzle.add_clue(5, 1, 3)
-    puzzle.add_clue(5, 2, 4)
-    puzzle.check_pointing_pairs(log=True)
+    puzzle.add_clue(3, 0, 1)
+    puzzle.add_clue(3, 2, 3)
+    puzzle.add_clue(3, 3, 4)
+    puzzle.add_clue(3, 4, 5)
+    puzzle.add_clue(0, 1, 2)
+    puzzle.add_clue(8, 5, 2)
+    puzzle.check_box_line_reduction(log=True)
     puzzle.print_board(large=False)
