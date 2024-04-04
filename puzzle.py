@@ -51,6 +51,7 @@ class Puzzle:
         # initialize board
         self.board: list[list[Cell]] = [[Cell(y * 9 + x) for x in range(9)] for y in range(9)]
 
+        self.cells: list[Cell] = []
         self.boxes: list[list[Cell]] = [[] for _ in range(9)]
         self.columns: list[list[Cell]] = [[] for _ in range(9)]
         self.rows: list[list[Cell]] = self.board  # self.board is stored as a list of rows so we can just copy it
@@ -66,10 +67,22 @@ class Puzzle:
                 cell = self.board[row][col]
                 self.boxes[box].append(cell)
                 self.columns[col].append(cell)
+                self.cells.append(cell)
 
         for box in self.boxes:
             for cell in box:
                 cell.add_sees(box)
+
+    def is_solved(self) -> bool:
+        """
+        Checks if the puzzle is solved
+        :return: True if the puzzle is solved, False otherwise
+        """
+        for cell in self.cells:
+            if not cell.isSolved:
+                return False
+
+        return True
 
     def get_cell(self, row: int, col: int) -> Cell:
         if row < 0 or row >= 9:
@@ -283,7 +296,6 @@ class Puzzle:
     def check_naked_n_tuples(self, n: int, log=False) -> bool:
         """
         Checks for every row/column/box if there is a set of n digits that are exclusive to n cells
-        :param n: the number of digits
         """
 
         if n < 2:
@@ -326,13 +338,14 @@ class Puzzle:
 
                                     if log:
 
+                                        logmsg = ""
                                         match _house[1]:
                                             case "Box":
-                                                logmsg = f"Hidden {n}-tuple ({''.join([str(x) for x in digits])} found in Box {cells[0].box + 1}: The following can be eliminated:"
+                                                logmsg = f"Naked {n}-tuple ({''.join([str(x) for x in digits])} found in Box {cells[0].box + 1}: The following can be eliminated:"
                                             case "Row":
-                                                logmsg = f"Hidden {n}-tuple ({''.join([str(x) for x in digits])} found in Row {cells[0].row + 1}: The following can be eliminated:"
+                                                logmsg = f"Naked {n}-tuple ({''.join([str(x) for x in digits])} found in Row {cells[0].row + 1}: The following can be eliminated:"
                                             case "Column":
-                                                logmsg = f"Hidden {n}-tuple ({''.join([str(x) for x in digits])} found in Column {cells[0].col + 1}: The following can be eliminated:"
+                                                logmsg = f"Naked {n}-tuple ({''.join([str(x) for x in digits])} found in Column {cells[0].col + 1}: The following can be eliminated:"
 
                                         for d in elims:
                                             if len(elims[d]) > 0:
@@ -344,25 +357,68 @@ class Puzzle:
                                         for c in elims[d]:
                                             c.options.remove(d)
 
+                                    return True
 
+        return _return
 
+    def solve_puzzle(self):
 
+        while not self.is_solved():
 
+            if self.check_solved_cells(True):
+                continue
 
+            if self.check_hidden_singles(True):
+                continue
 
+            if self.check_pointing_pairs(True):
+                continue
+
+            if self.check_box_line_reduction(True):
+                continue
+
+            # checking naked n-tuple for 5,6,7, covers hidden n-tuple for 2,3,4
+            found = True
+            for n in range(2, 8):
+                print(n)
+                if self.check_naked_n_tuples(n, True):
+                    break
+            else:
+                found = False
+            if found:
+                continue
+
+            print("No logic steps found")
+            break
 
 
 if __name__ == "__main__":
-    import pprint
-
     puzzle = Puzzle()
-    puzzle.add_clue(0, 0, 1)
-    puzzle.add_clue(0, 1, 2)
-    puzzle.add_clue(0, 2, 3)
-    puzzle.add_clue(1, 0, 4)
-    puzzle.add_clue(1, 1, 5)
-    puzzle.add_clue(1, 2, 6)
-    puzzle.add_clue(8, 1, 7)
-    puzzle.add_clue(8, 2, 7)
-    puzzle.check_naked_n_tuples(n=2, log=True)
+    puzzle.add_clue(0, 0, 9)
+    puzzle.add_clue(0, 3, 8)
+    puzzle.add_clue(0,  5, 5)
+    puzzle.add_clue(0, 8, 2)
+    puzzle.add_clue(2, 1, 5)
+    puzzle.add_clue(2, 3, 2)
+    puzzle.add_clue(2, 4, 9)
+    puzzle.add_clue(2, 5, 6)
+    puzzle.add_clue(2, 7, 7)
+    puzzle.add_clue(3, 1, 9)
+    puzzle.add_clue(3, 4, 3)
+    puzzle.add_clue(3, 7, 1)
+    puzzle.add_clue(4, 2, 8)
+    puzzle.add_clue(4, 6, 5)
+    puzzle.add_clue(5, 1, 2)
+    puzzle.add_clue(5, 4, 5)
+    puzzle.add_clue(5, 7, 8)
+    puzzle.add_clue(6, 1, 7)
+    puzzle.add_clue(6, 3, 6)
+    puzzle.add_clue(6, 4, 2)
+    puzzle.add_clue(6, 5, 9)
+    puzzle.add_clue(6, 7, 3)
+    puzzle.add_clue(8, 0, 1)
+    puzzle.add_clue(8, 3, 7)
+    puzzle.add_clue(8, 5, 3)
+    puzzle.add_clue(8, 8, 8)
+    puzzle.solve_puzzle()
     puzzle.print_board(large=False)
