@@ -3,6 +3,8 @@ from __future__ import annotations
 import sys
 import itertools
 
+import tools
+
 
 class Cell:
     def __init__(self, id: int, digit=None):
@@ -25,7 +27,7 @@ class Cell:
         return f"Cell(row={self.row}, col={self.col})"
 
     def __str__(self):
-        return f"Cell(row={self.row + 1}, col={self.col + 1})"
+        return f"r{self.row + 1}c{self.col + 1}"
 
     def __eq__(self, other):
         return self.id == other.id
@@ -276,6 +278,74 @@ class Puzzle:
                                 for c in elims:
                                     c.options.remove(digit)
 
+        return _return
+
+    def check_naked_n_tuples(self, n: int, log=False) -> bool:
+        """
+        Checks for every row/column/box if there is a set of n digits that are exclusive to n cells
+        :param n: the number of digits
+        """
+
+        if n < 2:
+            raise ValueError("Cannot check for naked n-tuples with n<2 in this function")
+
+        _return = False
+        pass_successful = True
+        while pass_successful:
+            pass_successful = False
+
+            for _house in ((self.boxes, "Box"), (self.rows, "Row"), (self.columns, "Column")):
+                for house in _house[0]:
+
+                    for digits in set(itertools.combinations(range(1,10), n)):
+                       for cells in set(itertools.combinations(house, n)):
+                            if tools.any(cells, lambda x: x.isSolved):
+                                continue
+
+                            # check if for all selected cells, every cell's candidates is a subset of the selected digits
+                            if tools.all(cells, lambda x: set(x.options) <= set(digits)):
+
+                                # naked n-tuple found
+
+                                # filter all cells that don't have any digits of the naked pair as candidates
+                                elims = {}
+                                for d in digits:
+                                    elims[d] = []
+
+                                for c in house:
+                                    if c in cells:
+                                        continue
+
+                                    for d in digits:
+                                        if d in c.options:
+                                            elims[d].append(c)
+
+                                if tools.any(elims, lambda x: len(elims[x]) > 0):
+                                    pass_successful = True
+                                    _return = True
+
+                                    if log:
+
+                                        match _house[1]:
+                                            case "Box":
+                                                logmsg = f"Hidden {n}-tuple ({''.join([str(x) for x in digits])} found in Box {cells[0].box + 1}: The following can be eliminated:"
+                                            case "Row":
+                                                logmsg = f"Hidden {n}-tuple ({''.join([str(x) for x in digits])} found in Row {cells[0].row + 1}: The following can be eliminated:"
+                                            case "Column":
+                                                logmsg = f"Hidden {n}-tuple ({''.join([str(x) for x in digits])} found in Column {cells[0].col + 1}: The following can be eliminated:"
+
+                                        for d in elims:
+                                            if len(elims[d]) > 0:
+                                                logmsg += f"\n{d} removed from {', '.join([str(x) for x in elims[d]])}"
+
+                                        print(logmsg)
+
+                                    for d in elims:
+                                        for c in elims[d]:
+                                            c.options.remove(d)
+
+
+
 
 
 
@@ -286,11 +356,13 @@ if __name__ == "__main__":
     import pprint
 
     puzzle = Puzzle()
-    puzzle.add_clue(3, 0, 1)
-    puzzle.add_clue(3, 2, 3)
-    puzzle.add_clue(3, 3, 4)
-    puzzle.add_clue(3, 4, 5)
+    puzzle.add_clue(0, 0, 1)
     puzzle.add_clue(0, 1, 2)
-    puzzle.add_clue(8, 5, 2)
-    puzzle.check_box_line_reduction(log=True)
+    puzzle.add_clue(0, 2, 3)
+    puzzle.add_clue(1, 0, 4)
+    puzzle.add_clue(1, 1, 5)
+    puzzle.add_clue(1, 2, 6)
+    puzzle.add_clue(8, 1, 7)
+    puzzle.add_clue(8, 2, 7)
+    puzzle.check_naked_n_tuples(n=2, log=True)
     puzzle.print_board(large=False)
