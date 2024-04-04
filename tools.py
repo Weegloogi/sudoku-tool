@@ -31,3 +31,22 @@ def all(it: Iterable, key: Callable[[Any], bool] = None) -> bool:
         if not key(i):
             return False
     return True
+
+
+def filter(it: Iterable, key: Callable[[Any], bool] = None) -> list:
+    """
+    filters an iterable object using key
+    :param it: the iterable to filter
+    :param key: optional key
+    :return: the list of filtered elements
+    """
+
+    if not key:
+        key = bool
+
+    res = []
+    for i in it:
+        if key(i):
+            res.append(i)
+
+    return res
