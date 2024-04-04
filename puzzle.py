@@ -73,6 +73,23 @@ class Puzzle:
             for cell in box:
                 cell.add_sees(box)
 
+    def import_board(self, board_str):
+        if len(board_str) != 81:
+            raise ValueError("Length of a board string must equal to 81")
+
+        # empty the current board
+        self.__init__()
+
+        for i, c in enumerate(board_str):
+            if c == '0':
+                continue
+
+            if not '0' < c <= '9':
+                raise ValueError(f"Character at index {i} is not 0-9")
+
+            puzzle.add_clue(self.cells[i].row, self.cells[i].col, int(c))
+
+
     def is_solved(self) -> bool:
         """
         Checks if the puzzle is solved
@@ -357,9 +374,77 @@ class Puzzle:
                                         for c in elims[d]:
                                             c.options.remove(d)
 
-                                    return True
+        return _return
+
+    def check_y_wing(self, log=False):
+        _return = False
+        pass_successful = True
+        while pass_successful:
+            pass_successful = False
+
+            bi_values = tools.filter(puzzle.cells, lambda x: len(x.options) == 2)
+
+            # select pivot
+            for pivot in bi_values:
+
+                # select A, B
+                for cells in itertools.combinations(bi_values, 2):
+
+                    if pivot in cells:
+                        continue
+
+                    # pivot must see both A and B
+                    # but A must not see B
+                    if cells[0] not in pivot.sees:
+                        continue
+                    if cells[1] not in pivot.sees:
+                        continue
+                    if cells[0] in cells[1].sees:
+                        continue
+
+                    # there must be exactly 3 different numbers
+                    unique_digits = set(pivot.options)
+                    tools.accumulate(cells, lambda x: tools.accumulate(x.options, unique_digits.add))
+
+                    if len(unique_digits) != 3:
+                        continue
+
+                    # the 3 different numbers must each occur twice
+                    all_cells = set(cells)
+                    all_cells.add(pivot)
+
+                    bad = False
+                    for d in unique_digits:
+                        total = 0
+                        for x in all_cells:
+                            if d in x.options:
+                                total += 1
+
+                        if total != 2:
+                            bad = True
+
+                    if bad:
+                        continue
+
+                    
+
+                    Z = next(iter(unique_digits.difference(set(pivot.options))))
+                    
+                    seen_by_both = [x for x in cells[0].sees if x in cells[1].sees]
+                    elims = [x for x in seen_by_both if Z in x.options]
+
+                    if len(elims) > 0:
+                        _return = True
+                        pass_successful = True
+
+                        if log:
+                            print(f"Y-wing hinged at {pivot} on {cells[0]} and {cells[1]}: {Z} can be eliminated from {', '.join([str(x) for x in elims])}")
+
+                        for c in elims:
+                            c.options.remove(Z)
 
         return _return
+
 
     def solve_puzzle(self):
 
@@ -378,47 +463,23 @@ class Puzzle:
                 continue
 
             # checking naked n-tuple for 5,6,7, covers hidden n-tuple for 2,3,4
-            found = True
+            found = False
             for n in range(2, 8):
-                print(n)
                 if self.check_naked_n_tuples(n, True):
+                    found = True
                     break
-            else:
-                found = False
             if found:
                 continue
 
-            print("No logic steps found")
+            if self.check_y_wing(True):
+                continue
+
             break
 
 
 if __name__ == "__main__":
     puzzle = Puzzle()
-    puzzle.add_clue(0, 0, 9)
-    puzzle.add_clue(0, 3, 8)
-    puzzle.add_clue(0,  5, 5)
-    puzzle.add_clue(0, 8, 2)
-    puzzle.add_clue(2, 1, 5)
-    puzzle.add_clue(2, 3, 2)
-    puzzle.add_clue(2, 4, 9)
-    puzzle.add_clue(2, 5, 6)
-    puzzle.add_clue(2, 7, 7)
-    puzzle.add_clue(3, 1, 9)
-    puzzle.add_clue(3, 4, 3)
-    puzzle.add_clue(3, 7, 1)
-    puzzle.add_clue(4, 2, 8)
-    puzzle.add_clue(4, 6, 5)
-    puzzle.add_clue(5, 1, 2)
-    puzzle.add_clue(5, 4, 5)
-    puzzle.add_clue(5, 7, 8)
-    puzzle.add_clue(6, 1, 7)
-    puzzle.add_clue(6, 3, 6)
-    puzzle.add_clue(6, 4, 2)
-    puzzle.add_clue(6, 5, 9)
-    puzzle.add_clue(6, 7, 3)
-    puzzle.add_clue(8, 0, 1)
-    puzzle.add_clue(8, 3, 7)
-    puzzle.add_clue(8, 5, 3)
-    puzzle.add_clue(8, 8, 8)
+    puzzle.import_board("010203040800000006000600100300000007001807900500000008009008000700000003020304050")
+    puzzle.print_board(large=False)
     puzzle.solve_puzzle()
     puzzle.print_board(large=False)

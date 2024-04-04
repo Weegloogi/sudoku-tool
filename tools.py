@@ -50,3 +50,9 @@ def filter(it: Iterable, key: Callable[[Any], bool] = None) -> list:
             res.append(i)
 
     return res
+
+
+def accumulate(it: Iterable, key: Callable) -> None:
+
+    for i in it:
+        key(i)
