@@ -239,45 +239,39 @@ class Puzzle:
 
         return elim
 
-    def check_pointing_pairs(self, log=False) -> bool:
+    def check_pointing_pairs(self) -> list[Elimination]:
         """
         Checks every box if the all remaining options for a digit see the same cell,
         in which case that digit can be removed from that cell.
         returns True if any digits were eliminated, otherwise False
         """
-        _return = False
-        pass_successful = True
-        while pass_successful:
-            pass_successful = False
+        elims = []
 
-            for digit in range(1,10):
+        for digit in range(1,10):
 
-                for i, box in enumerate(self.boxes):
-                    remaining_options = [c for c in box if digit in c.options]
+            for i, box in enumerate(self.boxes):
+                remaining_options = [c for c in box if digit in c.options]
 
-                    # a pointing pair can only occur if there are 2 or 4 remaining cells
-                    if len(remaining_options) == 2:
-                        seen_by_all = list(set(remaining_options[0].sees) & set(remaining_options[1].sees))
-                    elif len(remaining_options) == 3:
-                        seen_by_all = list(set(remaining_options[0].sees) &
-                                           set(remaining_options[1].sees) &
-                                           set(remaining_options[2].sees))
-                    else:
-                        continue
+                # a pointing pair can only occur if there are 2 or 3 remaining cells
+                if len(remaining_options) == 2:
+                    seen_by_all = list(set(remaining_options[0].sees) & set(remaining_options[1].sees))
+                elif len(remaining_options) == 3:
+                    seen_by_all = list(set(remaining_options[0].sees) &
+                                       set(remaining_options[1].sees) &
+                                       set(remaining_options[2].sees))
+                else:
+                    continue
 
-                    elims = [c for c in seen_by_all if digit in c.options]
+                eliminated_cells = [c for c in seen_by_all if digit in c.options]
 
-                    if len(elims) > 0:
-                        _return = True
-                        pass_successful = True
+                if len(eliminated_cells) > 0:
 
-                        if log:
-                            print(f"Pointing pair in box {i+1}: {digit} can be eliminated from {', '.join([f'r{c.row}c{c.col}' for c in elims])}")
+                    elims.append(Elimination(solved_cells=[],
+                                             eliminated_candidates=[(c, digit) for c in eliminated_cells],
+                                             message=f"Pointing pair in box {i+1}: {digit} can be eliminated from {', '.join([f'r{c.row}c{c.col}' for c in eliminated_cells])}",
+                                             highlights=[Highlight(c, None, [(digit, RED)]) for c in eliminated_cells]))
 
-                        for c in elims:
-                            c.options.remove(digit)
-
-        return _return
+        return elims
 
     def check_box_line_reduction(self, log=False) -> bool:
         """
