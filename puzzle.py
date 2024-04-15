@@ -204,45 +204,40 @@ class Puzzle:
 
         return elim
 
-    def check_hidden_singles(self, log=False) -> bool:
+    def check_hidden_singles(self) -> Elimination:
         """
         Checks for every house if there is a digit that only has 1 available cell remaining.
         If there is one such digit, we can fill in that digit in that cell.
         returns True if we found any hidden singles, False otherwise
         """
-        _return = False
-        pass_successful = True
-        while pass_successful:
-            pass_successful = False
 
-            for digit in range(1, 10):
-                houses = [(self.boxes, "Box"), (self.rows, "Row"), (self.columns, "Column")]
+        elim = Elimination([], [], "Hidden singles, the following digits can be placed:", [])
 
-                for _houses in houses:
+        for digit in range(1, 10):
+            houses = [(self.boxes, "Box"), (self.rows, "Row"), (self.columns, "Column")]
+            for _houses in houses:
+                for house in _houses[0]: # look at an individual box/row/column
+                    possibilities = []
+                    for cell in house:
+                        if digit in cell.options:
+                            possibilities.append(cell)
 
-                    for house in _houses[0]:
-                        possibilities = []
-                        for cell in house:
-                            if digit in cell.options:
-                                possibilities.append(cell)
+                    if len(possibilities) == 1:
+                        cell = possibilities[0]
 
-                        if len(possibilities) == 1:
-                            pass_successful = True
-                            _return = True
+                        x = ""
+                        if _houses[1] == "Box":
+                            x = f"Box {cell.box + 1}"
+                        elif _houses[1] == "Row":
+                            x = f"Row {cell.row + 1}"
+                        elif _houses[1] == "Column":
+                            x = f"Column {cell.col + 1}"
 
-                            cell = possibilities[0]
+                        elim.solved_cells.append((cell, digit))
+                        elim.highlights.append(Highlight(cell, None, [(digit, GREEN)]))
+                        elim.message += f"\n- {digit} exclusive to r{cell.row + 1}c{cell.col + 1} in {x}: {digit} can be placed there"
 
-                            self.add_clue(cell.row, cell.col, digit)
-
-                            if log:
-                                if _houses[1] == "Box":
-                                    print(f"Hidden Single in Box {cell.box + 1}: r{cell.row}c{cell.col} must be a {digit}")
-                                elif _houses[1] == "Row":
-                                    print(f"Hidden Single in Row {cell.row}: r{cell.row}c{cell.col} must be a {digit}")
-                                elif _houses[1] == "Column":
-                                    print(f"Hidden Single in Column {cell.col}: r{cell.row}c{cell.col} must be a {digit}")
-
-        return _return
+        return elim
 
     def check_pointing_pairs(self, log=False) -> bool:
         """
