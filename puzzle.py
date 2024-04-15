@@ -2,8 +2,16 @@ from __future__ import annotations
 
 import sys
 import itertools
+from dataclasses import dataclass, field
+from typing import Union
 
 import tools
+
+
+# colors for highlights
+RED = (255, 0, 0)
+GREEN = (0, 255, 0)
+BLUE = (0, 0, 255)
 
 
 class Cell:
@@ -44,6 +52,36 @@ class Cell:
         for cell in sees:
             if (cell not in self.sees) and (cell != self):
                 self.add_see(cell)
+
+
+@dataclass
+class Highlight:
+    """
+    Information about a cell highlight
+    cell: the cell to highlight
+    cellColor: background color of the cell
+    digitColors: background color of the candidates (if any)
+    """
+    cell: Cell  # the cell
+    cellColor: Union[tuple[int, int, int], type(None)]  # the background color of a cell (rgb)
+    digitColors: list[tuple[int, tuple[int, int, int]]]  # the list of digits to highlight in cell (digit, rgb)
+
+
+@dataclass
+class Elimination:
+    """
+    Information about an elimination
+    is_useful: whether this elimination has any data in solved_cells or eliminated_candidates
+    solved_cells: list of cells where a digit is placed with this elimination
+    eliminated_candidates: list of cells for which a candidate is eliminated
+    message: the log message that is written with this elimination
+    highlights: which cells to highlight for a solver that supports this feature
+    """
+    is_useful: bool = field(init=False, default=False)
+    solved_cells: list[tuple[Cell, int]]
+    eliminated_candidates: list[tuple[Cell, int]]
+    message: str
+    highlights: list[Highlight]
 
 
 class Puzzle:
