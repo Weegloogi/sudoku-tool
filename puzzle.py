@@ -2,8 +2,16 @@ from __future__ import annotations
 
 import sys
 import itertools
+from dataclasses import dataclass, field
+from typing import Union
 
 import tools
+
+
+# colors for highlights
+RED = (255, 0, 0)
+GREEN = (0, 255, 0)
+BLUE = (0, 0, 255)
 
 
 class Cell:
@@ -44,6 +52,36 @@ class Cell:
         for cell in sees:
             if (cell not in self.sees) and (cell != self):
                 self.add_see(cell)
+
+
+@dataclass
+class Highlight:
+    """
+    Information about a cell highlight
+    cell: the cell to highlight
+    cellColor: background color of the cell
+    digitColors: background color of the candidates (if any)
+    """
+    cell: Cell  # the cell
+    cellColor: Union[tuple[int, int, int], type(None)]  # the background color of a cell (rgb)
+    digitColors: list[tuple[int, tuple[int, int, int]]]  # the list of digits to highlight in cell (digit, rgb)
+
+
+@dataclass
+class Elimination:
+    """
+    Information about an elimination
+    is_useful: whether this elimination has any data in solved_cells or eliminated_candidates
+    solved_cells: list of cells where a digit is placed with this elimination
+    eliminated_candidates: list of cells for which a candidate is eliminated
+    message: the log message that is written with this elimination
+    highlights: which cells to highlight for a solver that supports this feature
+    """
+    solved_cells: list[tuple[Cell, int]]
+    eliminated_candidates: list[tuple[Cell, int]]
+    message: str
+    highlights: list[Highlight]
+    is_useful: bool = field(default=False)
 
 
 class Puzzle:
@@ -164,120 +202,116 @@ class Puzzle:
                 if (row in [2, 5]):
                     print("---+---+---", file=outstream)
 
+    def apply_elimination(self, elim: Elimination) -> bool:
+        for c, d in elim.solved_cells:
+            c.isSolved = True
+            c.options = [d]
+            c.digit = d
+
+        for c,d in elim.eliminated_candidates:
+            c.options.remove(d)
+
+        return elim.is_useful
+
+
     # naked singles
-    def check_solved_cells(self, log=False) -> bool:
+    def check_solved_cells(self) -> Elimination:
         """
         Checks every cell if it only has one possible digit left, in which case the cell is solved and we can fill in that digit
         returns True if any cells were solved, False otherwise
         """
 
-        _return = False
-        pass_successful = True
-        while pass_successful:
-            pass_successful = False
+        elim = Elimination([], [], "Naked singles, the following digits can be placed:", [])
 
-            for row in range(9):
-                for col in range(9):
-                    cell = self.board[row][col]
+        for cell in self.cells:
+            if len(cell.options) == 1:
+                d = cell.options[0]
 
-                    if len(cell.options) == 1:
-                        pass_successful = True
-                        _return = True
-                        digit = cell.options[0]
-                        self.add_clue(row, col, cell.options[0])
+                elim.solved_cells.append((cell, d))
+                elim.message += f"\n- {d} placed in r{cell.row + 1}c{cell.col + 1}"
+                elim.highlights.append(Highlight(cell, None, [d, GREEN]))
+                elim.is_useful = True
 
-                        if log:
-                            print(f"Naked single: r{row + 1}c{col + 1} must be a {digit}")
+        return elim
 
-        return _return
-
-    def check_hidden_singles(self, log=False) -> bool:
+    def check_hidden_singles(self) -> Elimination:
         """
         Checks for every house if there is a digit that only has 1 available cell remaining.
         If there is one such digit, we can fill in that digit in that cell.
         returns True if we found any hidden singles, False otherwise
         """
-        _return = False
-        pass_successful = True
-        while pass_successful:
-            pass_successful = False
 
-            for digit in range(1, 10):
-                houses = [(self.boxes, "Box"), (self.rows, "Row"), (self.columns, "Column")]
+        elim = Elimination([], [], "Hidden singles, the following digits can be placed:", [])
 
-                for _houses in houses:
+        for digit in range(1, 10):
+            houses = [(self.boxes, "Box"), (self.rows, "Row"), (self.columns, "Column")]
+            for _houses in houses:
+                for house in _houses[0]: # look at an individual box/row/column
+                    possibilities = []
+                    for cell in house:
+                        if digit in cell.options:
+                            possibilities.append(cell)
 
-                    for house in _houses[0]:
-                        possibilities = []
-                        for cell in house:
-                            if digit in cell.options:
-                                possibilities.append(cell)
+                    if len(possibilities) == 1:
+                        cell = possibilities[0]
 
-                        if len(possibilities) == 1:
-                            pass_successful = True
-                            _return = True
+                        x = ""
+                        if _houses[1] == "Box":
+                            x = f"Box {cell.box + 1}"
+                        elif _houses[1] == "Row":
+                            x = f"Row {cell.row + 1}"
+                        elif _houses[1] == "Column":
+                            x = f"Column {cell.col + 1}"
 
-                            cell = possibilities[0]
+                        elim.solved_cells.append((cell, digit))
+                        elim.highlights.append(Highlight(cell, None, [(digit, GREEN)]))
+                        elim.message += f"\n- {digit} exclusive to r{cell.row + 1}c{cell.col + 1} in {x}: {digit} can be placed there"
+                        elim.is_useful = True
 
-                            self.add_clue(cell.row, cell.col, digit)
+        return elim
 
-                            if log:
-                                if _houses[1] == "Box":
-                                    print(f"Hidden Single in Box {cell.box + 1}: r{cell.row}c{cell.col} must be a {digit}")
-                                elif _houses[1] == "Row":
-                                    print(f"Hidden Single in Row {cell.row}: r{cell.row}c{cell.col} must be a {digit}")
-                                elif _houses[1] == "Column":
-                                    print(f"Hidden Single in Column {cell.col}: r{cell.row}c{cell.col} must be a {digit}")
-
-        return _return
-
-    def check_pointing_pairs(self, log=False) -> bool:
+    def check_pointing_pairs(self) -> list[Elimination]:
         """
         Checks every box if the all remaining options for a digit see the same cell,
         in which case that digit can be removed from that cell.
         returns True if any digits were eliminated, otherwise False
         """
-        _return = False
-        pass_successful = True
-        while pass_successful:
-            pass_successful = False
+        elims = []
 
-            for digit in range(1,10):
+        for digit in range(1,10):
 
-                for i, box in enumerate(self.boxes):
-                    remaining_options = [c for c in box if digit in c.options]
+            for i, box in enumerate(self.boxes):
+                remaining_options = [c for c in box if digit in c.options]
 
-                    # a pointing pair can only occur if there are 2 or 4 remaining cells
-                    if len(remaining_options) == 2:
-                        seen_by_all = list(set(remaining_options[0].sees) & set(remaining_options[1].sees))
-                    elif len(remaining_options) == 3:
-                        seen_by_all = list(set(remaining_options[0].sees) &
-                                           set(remaining_options[1].sees) &
-                                           set(remaining_options[2].sees))
-                    else:
-                        continue
+                # a pointing pair can only occur if there are 2 or 3 remaining cells
+                if len(remaining_options) == 2:
+                    seen_by_all = list(set(remaining_options[0].sees) & set(remaining_options[1].sees))
+                elif len(remaining_options) == 3:
+                    seen_by_all = list(set(remaining_options[0].sees) &
+                                       set(remaining_options[1].sees) &
+                                       set(remaining_options[2].sees))
+                else:
+                    continue
 
-                    elims = [c for c in seen_by_all if digit in c.options]
+                eliminated_cells = [c for c in seen_by_all if digit in c.options]
 
-                    if len(elims) > 0:
-                        _return = True
-                        pass_successful = True
+                if len(eliminated_cells) > 0:
 
-                        if log:
-                            print(f"Pointing pair in box {i+1}: {digit} can be eliminated from {', '.join([f'r{c.row}c{c.col}' for c in elims])}")
+                    elims.append(Elimination(solved_cells=[],
+                                             eliminated_candidates=[(c, digit) for c in eliminated_cells],
+                                             message=f"Pointing pair in box {i+1}: {digit} can be eliminated from {', '.join([f'r{c.row}c{c.col}' for c in eliminated_cells])}",
+                                             highlights=[Highlight(c, None, [(digit, RED)]) for c in eliminated_cells],
+                                             is_useful=True))
 
-                        for c in elims:
-                            c.options.remove(digit)
+        return elims
 
-        return _return
-
-    def check_box_line_reduction(self, log=False) -> bool:
+    def check_box_line_reduction(self) -> list[Elimination]:
         """
         Checks for every line if a digit is restricted to a single box,
         in which case, the digit can be removed from any cell in that box that is not on the line.
         """
 
-        _return = False
+        elim = []
         pass_successful = True
         while pass_successful:
             pass_successful = False
@@ -285,7 +319,7 @@ class Puzzle:
             for digit in range(1,10):
 
                 for _house in ((self.rows, "row"), (self.columns, "column")):
-                    for line in _house[0]:
+                    for i, line in enumerate(_house[0]):
                         remaining_options = [c for c in line if digit in c.options]
                         boxes = set()
                         for option in remaining_options:
@@ -302,15 +336,15 @@ class Puzzle:
                                 _return = True
                                 pass_successful = True
 
-                                if log:
-                                    print(f"Box line reduction in box {remaining_options[0].box}: {digit} can be eliminated from {', '.join([f'r{c.row}c{c.col}' for c in elims])}")
+                                elim.append(Elimination(solved_cells=[],
+                                                        eliminated_candidates=[(c, digit) for c in elims],
+                                                        message=f"Box line reduction in {_house[1]} {i + 1}: {digit} can be eliminated from {', '.join([f'r{c.row}c{c.col}' for c in elims])}",
+                                                        highlights=[Highlight(c, None, [(digit, RED)]) for c in
+                                                                    elims]))
 
-                                for c in elims:
-                                    c.options.remove(digit)
+        return elim
 
-        return _return
-
-    def check_naked_n_tuples(self, n: int, log=False) -> bool:
+    def check_naked_n_tuples(self, n: int) -> list[Elimination]:
         """
         Checks for every row/column/box if there is a set of n digits that are exclusive to n cells
         """
@@ -318,7 +352,7 @@ class Puzzle:
         if n < 2:
             raise ValueError("Cannot check for naked n-tuples with n<2 in this function")
 
-        _return = False
+        elim: list[Elimination] = []
         pass_successful = True
         while pass_successful:
             pass_successful = False
@@ -353,28 +387,29 @@ class Puzzle:
                                     pass_successful = True
                                     _return = True
 
-                                    if log:
+                                    logmsg = ""
+                                    match _house[1]:
+                                        case "Box":
+                                            logmsg = f"Naked {n}-tuple ({''.join([str(x) for x in digits])} found in Box {cells[0].box + 1}: The following can be eliminated:"
+                                        case "Row":
+                                            logmsg = f"Naked {n}-tuple ({''.join([str(x) for x in digits])} found in Row {cells[0].row + 1}: The following can be eliminated:"
+                                        case "Column":
+                                            logmsg = f"Naked {n}-tuple ({''.join([str(x) for x in digits])} found in Column {cells[0].col + 1}: The following can be eliminated:"
 
-                                        logmsg = ""
-                                        match _house[1]:
-                                            case "Box":
-                                                logmsg = f"Naked {n}-tuple ({''.join([str(x) for x in digits])} found in Box {cells[0].box + 1}: The following can be eliminated:"
-                                            case "Row":
-                                                logmsg = f"Naked {n}-tuple ({''.join([str(x) for x in digits])} found in Row {cells[0].row + 1}: The following can be eliminated:"
-                                            case "Column":
-                                                logmsg = f"Naked {n}-tuple ({''.join([str(x) for x in digits])} found in Column {cells[0].col + 1}: The following can be eliminated:"
-
-                                        for d in elims:
-                                            if len(elims[d]) > 0:
-                                                logmsg += f"\n{d} removed from {', '.join([str(x) for x in elims[d]])}"
-
-                                        print(logmsg)
+                                    for d in elims:
+                                        if len(elims[d]) > 0:
+                                            logmsg += f"\n{d} removed from {', '.join([str(x) for x in elims[d]])}"
 
                                     for d in elims:
                                         for c in elims[d]:
                                             c.options.remove(d)
 
-        return _return
+                                    elim.append(Elimination(solved_cells=[],
+                                                            eliminated_candidates=[(c, d) for d in elims for c in elims[d]],
+                                                            message=logmsg,
+                                                            highlights=[Highlight(c, None, [(d, RED)]) for d in elims for c in elims[d]],
+                                                            is_useful=True))
+        return elim
 
     def check_y_wing(self, log=False):
         _return = False
@@ -426,10 +461,10 @@ class Puzzle:
                     if bad:
                         continue
 
-                    
+
 
                     Z = next(iter(unique_digits.difference(set(pivot.options))))
-                    
+
                     seen_by_both = [x for x in cells[0].sees if x in cells[1].sees]
                     elims = [x for x in seen_by_both if Z in x.options]
 
@@ -450,25 +485,25 @@ class Puzzle:
 
         while not self.is_solved():
 
-            if self.check_solved_cells(True):
+            res = self.check_solved_cells()
+            if self.apply_elimination(res):
                 continue
 
-            if self.check_hidden_singles(True):
+            res = self.check_hidden_singles()
+            if self.apply_elimination(res):
                 continue
 
-            if self.check_pointing_pairs(True):
+            res = self.check_pointing_pairs()
+            if any(self.apply_elimination(elim) for elim in res):
                 continue
 
-            if self.check_box_line_reduction(True):
+            res = self.check_box_line_reduction()
+            if any(self.apply_elimination(elim) for elim in res):
                 continue
 
             # checking naked n-tuple for 5,6,7, covers hidden n-tuple for 2,3,4
-            found = False
-            for n in range(2, 8):
-                if self.check_naked_n_tuples(n, True):
-                    found = True
-                    break
-            if found:
+            res_list = (self.check_naked_n_tuples(n) for n in range(2, 8))
+            if any(self.apply_elimination(elim) for res in res_list for elim in res):
                 continue
 
             if self.check_y_wing(True):
@@ -479,7 +514,31 @@ class Puzzle:
 
 if __name__ == "__main__":
     puzzle = Puzzle()
-    puzzle.import_board("010203040800000006000600100300000007001807900500000008009008000700000003020304050")
-    puzzle.print_board(large=False)
+    puzzle.add_clue(0, 0, 9)
+    puzzle.add_clue(0, 3, 8)
+    puzzle.add_clue(0,  5, 5)
+    puzzle.add_clue(0, 8, 2)
+    puzzle.add_clue(2, 1, 5)
+    puzzle.add_clue(2, 3, 2)
+    puzzle.add_clue(2, 4, 9)
+    puzzle.add_clue(2, 5, 6)
+    puzzle.add_clue(2, 7, 7)
+    puzzle.add_clue(3, 1, 9)
+    puzzle.add_clue(3, 4, 3)
+    puzzle.add_clue(3, 7, 1)
+    puzzle.add_clue(4, 2, 8)
+    puzzle.add_clue(4, 6, 5)
+    puzzle.add_clue(5, 1, 2)
+    puzzle.add_clue(5, 4, 5)
+    puzzle.add_clue(5, 7, 8)
+    puzzle.add_clue(6, 1, 7)
+    puzzle.add_clue(6, 3, 6)
+    puzzle.add_clue(6, 4, 2)
+    puzzle.add_clue(6, 5, 9)
+    puzzle.add_clue(6, 7, 3)
+    puzzle.add_clue(8, 0, 1)
+    puzzle.add_clue(8, 3, 7)
+    puzzle.add_clue(8, 5, 3)
+    puzzle.add_clue(8, 8, 8)
     puzzle.solve_puzzle()
     puzzle.print_board(large=False)
