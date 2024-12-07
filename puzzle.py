@@ -77,11 +77,11 @@ class Elimination:
     message: the log message that is written with this elimination
     highlights: which cells to highlight for a solver that supports this feature
     """
-    is_useful: bool = field(init=False, default=False)
     solved_cells: list[tuple[Cell, int]]
     eliminated_candidates: list[tuple[Cell, int]]
     message: str
     highlights: list[Highlight]
+    is_useful: bool = field(default=False)
 
 
 class Puzzle:
@@ -185,6 +185,18 @@ class Puzzle:
                 if (row in [2, 5]):
                     print("---+---+---", file=outstream)
 
+    def apply_elimination(self, elim: Elimination) -> bool:
+        for c, d in elim.solved_cells:
+            c.isSolved = True
+            c.options = [d]
+            c.digit = d
+
+        for c,d in elim.eliminated_candidates:
+            c.options.remove(d)
+
+        return elim.is_useful
+
+
     # naked singles
     def check_solved_cells(self) -> Elimination:
         """
@@ -201,6 +213,7 @@ class Puzzle:
                 elim.solved_cells.append((cell, d))
                 elim.message += f"\n- {d} placed in r{cell.row + 1}c{cell.col + 1}"
                 elim.highlights.append(Highlight(cell, None, [d, GREEN]))
+                elim.is_useful = True
 
         return elim
 
@@ -236,6 +249,7 @@ class Puzzle:
                         elim.solved_cells.append((cell, digit))
                         elim.highlights.append(Highlight(cell, None, [(digit, GREEN)]))
                         elim.message += f"\n- {digit} exclusive to r{cell.row + 1}c{cell.col + 1} in {x}: {digit} can be placed there"
+                        elim.is_useful = True
 
         return elim
 
@@ -269,7 +283,8 @@ class Puzzle:
                     elims.append(Elimination(solved_cells=[],
                                              eliminated_candidates=[(c, digit) for c in eliminated_cells],
                                              message=f"Pointing pair in box {i+1}: {digit} can be eliminated from {', '.join([f'r{c.row}c{c.col}' for c in eliminated_cells])}",
-                                             highlights=[Highlight(c, None, [(digit, RED)]) for c in eliminated_cells]))
+                                             highlights=[Highlight(c, None, [(digit, RED)]) for c in eliminated_cells],
+                                             is_useful=True))
 
         return elims
 
@@ -320,7 +335,7 @@ class Puzzle:
         if n < 2:
             raise ValueError("Cannot check for naked n-tuples with n<2 in this function")
 
-        elim = list[Elimination]
+        elim: list[Elimination] = []
         pass_successful = True
         while pass_successful:
             pass_successful = False
@@ -375,10 +390,8 @@ class Puzzle:
                                     elim.append(Elimination(solved_cells=[],
                                                             eliminated_candidates=[(c, d) for d in elims for c in elims[d]],
                                                             message=logmsg,
-                                                            highlights=[Highlight(c, None, [(digit, RED)]) for c in
-                                                                        elims]))
-
-                                    return True
+                                                            highlights=[Highlight(c, None, [(d, RED)]) for d in elims for c in elims[d]],
+                                                            is_useful=True))
 
         return elim
 
@@ -386,27 +399,25 @@ class Puzzle:
 
         while not self.is_solved():
 
-            if self.check_solved_cells(True):
+            res = self.check_solved_cells()
+            if self.apply_elimination(res):
                 continue
 
-            if self.check_hidden_singles(True):
+            res = self.check_hidden_singles()
+            if self.apply_elimination(res):
                 continue
 
-            if self.check_pointing_pairs(True):
+            res = self.check_pointing_pairs()
+            if any(self.apply_elimination(elim) for elim in res):
                 continue
 
-            if self.check_box_line_reduction(True):
+            res = self.check_box_line_reduction()
+            if any(self.apply_elimination(elim) for elim in res):
                 continue
 
             # checking naked n-tuple for 5,6,7, covers hidden n-tuple for 2,3,4
-            found = True
-            for n in range(2, 8):
-                print(n)
-                if self.check_naked_n_tuples(n, True):
-                    break
-            else:
-                found = False
-            if found:
+            res_list = (self.check_naked_n_tuples(n) for n in range(2, 8))
+            if any(self.apply_elimination(elim) for res in res_list for elim in res):
                 continue
 
             print("No logic steps found")
