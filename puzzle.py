@@ -273,7 +273,7 @@ class Puzzle:
 
         return elims
 
-    def check_box_line_reduction(self, log=False) -> list[Elimination]:
+    def check_box_line_reduction(self) -> list[Elimination]:
         """
         Checks for every line if a digit is restricted to a single box,
         in which case, the digit can be removed from any cell in that box that is not on the line.
@@ -304,9 +304,6 @@ class Puzzle:
                                 _return = True
                                 pass_successful = True
 
-                                if log:
-                                    print(f"Box line reduction in box {remaining_options[0].box}: {digit} can be eliminated from {', '.join([f'r{c.row}c{c.col}' for c in elims])}")
-
                                 elim.append(Elimination(solved_cells=[],
                                                         eliminated_candidates=[(c, digit) for c in elims],
                                                         message=f"Box line reduction in {_house[1]} {i + 1}: {digit} can be eliminated from {', '.join([f'r{c.row}c{c.col}' for c in elims])}",
@@ -315,7 +312,7 @@ class Puzzle:
 
         return elim
 
-    def check_naked_n_tuples(self, n: int, log=False) -> bool:
+    def check_naked_n_tuples(self, n: int) -> list[Elimination]:
         """
         Checks for every row/column/box if there is a set of n digits that are exclusive to n cells
         """
@@ -323,7 +320,7 @@ class Puzzle:
         if n < 2:
             raise ValueError("Cannot check for naked n-tuples with n<2 in this function")
 
-        _return = False
+        elim = list[Elimination]
         pass_successful = True
         while pass_successful:
             pass_successful = False
@@ -358,30 +355,32 @@ class Puzzle:
                                     pass_successful = True
                                     _return = True
 
-                                    if log:
+                                    logmsg = ""
+                                    match _house[1]:
+                                        case "Box":
+                                            logmsg = f"Naked {n}-tuple ({''.join([str(x) for x in digits])} found in Box {cells[0].box + 1}: The following can be eliminated:"
+                                        case "Row":
+                                            logmsg = f"Naked {n}-tuple ({''.join([str(x) for x in digits])} found in Row {cells[0].row + 1}: The following can be eliminated:"
+                                        case "Column":
+                                            logmsg = f"Naked {n}-tuple ({''.join([str(x) for x in digits])} found in Column {cells[0].col + 1}: The following can be eliminated:"
 
-                                        logmsg = ""
-                                        match _house[1]:
-                                            case "Box":
-                                                logmsg = f"Naked {n}-tuple ({''.join([str(x) for x in digits])} found in Box {cells[0].box + 1}: The following can be eliminated:"
-                                            case "Row":
-                                                logmsg = f"Naked {n}-tuple ({''.join([str(x) for x in digits])} found in Row {cells[0].row + 1}: The following can be eliminated:"
-                                            case "Column":
-                                                logmsg = f"Naked {n}-tuple ({''.join([str(x) for x in digits])} found in Column {cells[0].col + 1}: The following can be eliminated:"
-
-                                        for d in elims:
-                                            if len(elims[d]) > 0:
-                                                logmsg += f"\n{d} removed from {', '.join([str(x) for x in elims[d]])}"
-
-                                        print(logmsg)
+                                    for d in elims:
+                                        if len(elims[d]) > 0:
+                                            logmsg += f"\n{d} removed from {', '.join([str(x) for x in elims[d]])}"
 
                                     for d in elims:
                                         for c in elims[d]:
                                             c.options.remove(d)
 
+                                    elim.append(Elimination(solved_cells=[],
+                                                            eliminated_candidates=[(c, d) for d in elims for c in elims[d]],
+                                                            message=logmsg,
+                                                            highlights=[Highlight(c, None, [(digit, RED)]) for c in
+                                                                        elims]))
+
                                     return True
 
-        return _return
+        return elim
 
     def solve_puzzle(self):
 
