@@ -273,13 +273,13 @@ class Puzzle:
 
         return elims
 
-    def check_box_line_reduction(self, log=False) -> bool:
+    def check_box_line_reduction(self, log=False) -> list[Elimination]:
         """
         Checks for every line if a digit is restricted to a single box,
         in which case, the digit can be removed from any cell in that box that is not on the line.
         """
 
-        _return = False
+        elim = []
         pass_successful = True
         while pass_successful:
             pass_successful = False
@@ -287,7 +287,7 @@ class Puzzle:
             for digit in range(1,10):
 
                 for _house in ((self.rows, "row"), (self.columns, "column")):
-                    for line in _house[0]:
+                    for i, line in enumerate(_house[0]):
                         remaining_options = [c for c in line if digit in c.options]
                         boxes = set()
                         for option in remaining_options:
@@ -307,10 +307,13 @@ class Puzzle:
                                 if log:
                                     print(f"Box line reduction in box {remaining_options[0].box}: {digit} can be eliminated from {', '.join([f'r{c.row}c{c.col}' for c in elims])}")
 
-                                for c in elims:
-                                    c.options.remove(digit)
+                                elim.append(Elimination(solved_cells=[],
+                                                        eliminated_candidates=[(c, digit) for c in elims],
+                                                        message=f"Box line reduction in {_house[1]} {i + 1}: {digit} can be eliminated from {', '.join([f'r{c.row}c{c.col}' for c in elims])}",
+                                                        highlights=[Highlight(c, None, [(digit, RED)]) for c in
+                                                                    elims]))
 
-        return _return
+        return elim
 
     def check_naked_n_tuples(self, n: int, log=False) -> bool:
         """
